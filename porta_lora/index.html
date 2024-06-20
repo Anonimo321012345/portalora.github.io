@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-pt">
+
+<head>
+    <title>LoRaWAN Sensores</title>
+    <meta charset="utf-8">
+
+    <script>
+        const showTimeNow = () => {
+            const clockTag = document.querySelector('time');
+            if (!clockTag) return;
+
+            let dateNow = new Date();
+            let hh = dateNow.getHours();
+            let mm = dateNow.getMinutes();
+            let ss = dateNow.getSeconds();
+
+            hh = hh < 10 ? '0' + hh : hh;
+            mm = mm < 10 ? '0' + mm : mm;
+            ss = ss < 10 ? '0' + ss : ss;
+
+            clockTag.innerText = hh + ':' + mm + ':' + ss;
+        }
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+            showTimeNow();
+            setInterval(showTimeNow, 1000);
+        });
+    </script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #div_cabecalho {
+            background-color: rgb(8, 38, 121);
+            height: 10vh;
+            width: 100vw;
+            position: fixed;
+            top: 0;
+            left: 0;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 20px;
+            z-index: 10;
+        }
+
+        time {
+            position: absolute;
+            border: 1px solid #f7f7f7;
+            padding: 4px 12px;
+            background-color: rgb(8, 38, 121);
+            color: #f7f7f7;
+            font-size: 2.5em;
+            font-weight: 300;
+            border-radius: 4px;
+            margin-right: 20px;
+            right: 70px;
+        }
+
+        #div_barra_lateral {
+            background-color: rgb(0, 121, 219);
+            height: 90vh;
+            width: 12vw;
+            position: fixed;  
+            top: 10vh; /* Ajusta para ficar abaixo do cabeçalho */
+            left: 0;
+            z-index: 20;
+        }
+
+        table {
+            border-collapse: separate;
+            width: 100%;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+
+    <script>
+        function web1() {
+            var xhttp = new XMLHttpRequest();
+
+            xhttp.open("GET", "https://eu1.cloud.thethings.network/api/v3/as/applications/sensordaporta/devices/eui-a81758fffe048875/packages/storage/uplink_message", true);
+            xhttp.setRequestHeader("Content-Type", "application/json");
+            xhttp.setRequestHeader('Authorization', 'Bearer NNSXS.EGMV3X2KGV645VP6YAQ64Z7FJ25S3DWN6DK7SCQ.K5TCJY63ZUBFTU3UIBYBJMLPGFLYJ6S6LFF7GS7MTDKOR7S2BM7A');
+
+            xhttp.send();
+            xhttp.onload = function () {
+                try {
+                    var texto = xhttp.responseText;
+
+                    // corrigir os erros do JSON
+                    texto = texto.replace(/\s+/g, '');
+                    texto = texto.replace(/}{/g, '},{');
+                    texto = '[' + texto + ']';
+
+                    var dados = JSON.parse(texto);
+                    dadosx = [];
+                    
+
+                    var html = "<table><tr><th>Device_Id</th><th>Data</th><th>Hora</th><th>Porta</th></tr>";
+
+                    function isDST(date) {
+                        var year = date.getFullYear();
+                        var start = new Date(year, 3, 31);
+                        var end = new Date(year, 9, 27);
+                        var startDST = new Date(start.setDate(start.getDate() - start.getDay()));
+                        var endDST = new Date(end.setDate(end.getDate() - end.getDay()));
+                        return date >= startDST && date < endDST;
+                    }
+
+                    for (var i = dados.length - 1; i >= 0; i--) {
+                        var dataHora = dados[i]['result']['received_at'].split('T');
+                        var data = dataHora[0];
+                        var hora = dataHora[1].substring(0, 8);
+
+                        var dateObj = new Date(data + 'T' + hora);
+                        if (isDST(dateObj)) {
+                            dateObj.setHours(dateObj.getHours() + 1);
+                            hora = dateObj.toTimeString().substring(0, 8);
+                        }
+
+                        dadosx[dados.length - 1 - i] = hora;
+
+                        if(dados[dados.length - 1]['result']['uplink_message']['decoded_payload']['digital'] == 1){
+                            document.getElementById("id_porta_fechada").style.display = "block"; 
+                            document.getElementById("id_porta_aberta").style.display = "none"; 
+                            
+                        }
+
+                        if(dados[dados.length - 1]['result']['uplink_message']['decoded_payload']['digital'] == 0){
+                            document.getElementById("id_porta_fechada").style.display = "none"; 
+                            document.getElementById("id_porta_aberta").style.display = "block"; 
+                            
+                        }
+
+                        html += "<tr><td>" + dados[i]['result']['end_device_ids']['device_id'] + "</td>";
+                        html += "<td>" + data + "</td>";
+                        html += "<td>" + hora + "</td>";
+                        html += "<td>" + dados[i]['result']['uplink_message']['decoded_payload']['digital'] + "</td>";
+                    }
+
+
+                    html += "</table>";
+                    document.getElementById("dados").innerHTML = html;
+                } catch (error) {
+                    console.error("Failed to process data:", error);
+                }
+            };
+
+            xhttp.onerror = function () {
+                alert(`Network Error`);
+            };
+        }
+
+
+    </script>
+
+<script>
+    function autoRefresh() {
+        window.location = window.location.href;
+    }
+
+    setInterval('web1()', 250);
+</script>
+
+</head>
+
+<body onload="web1()">
+    <div id="div_cabecalho">
+        <time>00:00:00</time>
+        <a target="_blank" href="https://www.cm-pombal.pt/"><img src="logo_municipio_pombal.png" alt="logo_municipio_pombal" height="85vh" style="position: absolute; top: 0.5vh; left: 1vh; z-index: 10;"></a>
+        <!--<img src="benfica.png" alt="logo_benfica" height="85vh" style="position: absolute; top: 0.5vh; left: 100vh; z-index: 10;">
+        <img src="sporting.jpg" alt="logo_sporting" height="85vh" style="position: absolute; top: 0.5vh; left: 80vh; z-index: 10;">
+        <img src="happy_boll.jpg" alt="logo_happy_boll" height="85vh" style="position: absolute; top: 0.5vh; left: 120vh; z-index: 10;">-->
+    </div>
+    <div id="div_barra_lateral"></div>
+
+    <div id="div-tabelas" style="display: block; margin-top: 10px; background-color: rgb(255, 255, 255); width: auto; height: auto; position: absolute; top: 100px; right: 50px; border: 2px solid;">
+        <center>
+            <div id="dados">Dados</div>
+        </center>
+    </div>
+
+    <img id="id_porta_aberta" src="Porta_aberta.png" alt="Porta_aberta" style="position: absolute; top: 15vh; left: 50vh; height: 90vh; display: none;">
+    <img id="id_porta_fechada" src="Porta_fechada.png" alt="Porta_fechada" style="position: absolute; top: 15vh; left: 50vh; height: 90vh; display: none;">
+</body>
+
+</html>
